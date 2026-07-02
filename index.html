@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>qPCRflow</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">qPCRflow</p>
+          <h1>qPCRflow</h1>
+        </div>
+        <div id="analysisActions" class="topbar-actions" hidden>
+          <span id="appStatus" class="status-pill">等待输入</span>
+          <button id="calculateBtn" class="primary-btn" type="button">
+            <span aria-hidden="true">=</span>
+            计算
+          </button>
+        </div>
+      </header>
+
+      <nav class="module-tabs" aria-label="qPCRflow modules">
+        <button class="module-tab active" type="button" data-section="prep">前期准备</button>
+        <button class="module-tab" type="button" data-section="analysis">结果计算</button>
+      </nav>
+
+      <section id="prepSection" class="panel prep-panel" aria-labelledby="prepTitle">
+        <div class="panel-head prep-head">
+          <div>
+            <p class="section-kicker">Prep</p>
+            <h2 id="prepTitle">前期准备</h2>
+          </div>
+          <span id="prepStatus" class="status-pill">10 µL 体系</span>
+        </div>
+        <div class="prep-grid">
+          <div class="prep-form">
+            <div class="form-grid prep-inputs">
+              <label>
+                样本/处理组数
+                <input id="prepSampleGroups" type="number" min="1" step="1" value="2" />
+              </label>
+              <label>
+                每组生物学重复
+                <input id="prepBioReplicates" type="number" min="1" step="1" value="3" />
+              </label>
+              <label>
+                基因数
+                <input id="prepGeneCount" type="number" min="1" step="1" value="2" />
+              </label>
+              <label>
+                技术重复
+                <input id="prepTechReplicates" type="number" min="1" step="1" value="2" />
+              </label>
+              <label>
+                体系模板
+                <select id="prepPreset">
+                  <option value="10" selected>10 µL</option>
+                  <option value="20">20 µL</option>
+                  <option value="50">50 µL</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </label>
+              <label>
+                单孔体积 µL
+                <input id="prepReactionVolume" type="number" min="1" step="0.1" value="10" />
+              </label>
+              <label>
+                配液余量 %
+                <input id="prepOverage" type="number" min="0" step="1" value="10" />
+              </label>
+            </div>
+            <div class="form-grid prep-inputs">
+              <label>
+                Forward primer µL
+                <input id="prepForward" type="number" min="0" step="0.1" value="0.5" />
+              </label>
+              <label>
+                Reverse primer µL
+                <input id="prepReverse" type="number" min="0" step="0.1" value="0.5" />
+              </label>
+              <label>
+                Mix µL
+                <input id="prepMix" type="number" min="0" step="0.1" value="5" />
+              </label>
+              <label>
+                cDNA µL
+                <input id="prepCdna" type="number" min="0" step="0.1" value="1" />
+              </label>
+              <label>
+                ddH2O µL
+                <input id="prepWater" type="number" min="0" step="0.1" value="3" />
+              </label>
+              <label class="check-field wide-field">
+                <span>按单孔体积自动补 ddH2O</span>
+                <input id="prepAutoWater" type="checkbox" checked />
+              </label>
+            </div>
+            <div id="prepNote" class="inline-note">默认按 F 0.5 / R 0.5 / Mix 5 / cDNA 1 / ddH2O 3 的 10 µL 体系。</div>
+          </div>
+
+          <div class="prep-results">
+            <div id="prepMetrics" class="metric-grid prep-metrics"></div>
+            <div class="prep-tables">
+              <div class="prep-table-card">
+                <div class="prep-table-title">Mix + Primer，每个基因一管</div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>项目</th>
+                        <th>反应数</th>
+                        <th>F</th>
+                        <th>R</th>
+                        <th>Mix</th>
+                        <th>每孔加</th>
+                        <th>合计</th>
+                      </tr>
+                    </thead>
+                    <tbody id="primerMixBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="prep-table-card">
+                <div class="prep-table-title">cDNA + ddH2O，每个 cDNA 样本一管</div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>项目</th>
+                        <th>反应数</th>
+                        <th>cDNA</th>
+                        <th>ddH2O</th>
+                        <th>每孔加</th>
+                        <th>合计</th>
+                      </tr>
+                    </thead>
+                    <tbody id="templateMixBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="prep-table-card">
+                <div class="prep-table-title">总耗材估算</div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>试剂</th>
+                        <th>总量 µL</th>
+                      </tr>
+                    </thead>
+                    <tbody id="reagentTotalBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="prep-plate-card">
+              <div class="prep-table-title">96 孔板模拟上样设计</div>
+              <div id="plateSummary" class="plate-summary"></div>
+              <div id="plateDesign" class="plate-design"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <main id="analysisSection" class="workspace" hidden>
+        <aside class="left-stack">
+          <section class="panel input-panel" aria-labelledby="rawDataTitle">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">Step 1</p>
+                <h2 id="rawDataTitle">原始 CT</h2>
+              </div>
+              <div class="button-row">
+                <button id="exampleBtn" class="ghost-btn compact" type="button" title="载入一组示例数据">
+                  <span aria-hidden="true">◎</span>
+                  示例
+                </button>
+                <label class="ghost-btn compact file-btn" title="导入 CSV、TSV 或 TXT">
+                  <span aria-hidden="true">↑</span>
+                  导入
+                  <input id="fileInput" type="file" accept=".csv,.tsv,.txt" />
+                </label>
+                <button id="clearBtn" class="ghost-btn compact" type="button" title="清空输入">
+                  <span aria-hidden="true">×</span>
+                  清空
+                </button>
+              </div>
+            </div>
+            <textarea
+              id="rawInput"
+              spellcheck="false"
+              wrap="off"
+              placeholder="样本名	基因名称	任务	报告基因	淬灭基团	CT
+WT1	RefGene	UNKNOWN	SYBR	None	21.273
+WT1	RefGene	UNKNOWN	SYBR	None	21.147
+WT1	TargetGene1	UNKNOWN	SYBR	None	28.730"
+            ></textarea>
+          </section>
+
+          <section class="panel settings-panel" aria-labelledby="settingsTitle">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">Step 2</p>
+                <h2 id="settingsTitle">列与分组</h2>
+              </div>
+              <button id="inferBtn" class="ghost-btn compact" type="button" title="重新按样本名推断组别和生物重复">
+                <span aria-hidden="true">↺</span>
+                推断
+              </button>
+            </div>
+            <div class="form-grid">
+              <label>
+                样本列
+                <select id="sampleColumn"></select>
+              </label>
+              <label>
+                基因列
+                <select id="geneColumn"></select>
+              </label>
+              <label>
+                CT 列
+                <select id="ctColumn"></select>
+              </label>
+              <label>
+                组别列
+                <select id="groupColumn"></select>
+              </label>
+              <label>
+                生物重复列
+                <select id="bioColumn"></select>
+              </label>
+              <label>
+                技术重复列
+                <select id="techColumn"></select>
+              </label>
+              <label>
+                内参基因
+                <select id="referenceGene"></select>
+              </label>
+              <label>
+                对照组
+                <select id="controlGroup"></select>
+              </label>
+              <label class="wide-field">
+                p value
+                <select id="pvalueMethod">
+                  <option value="welch">Welch t-test on ΔCt</option>
+                  <option value="student">Student t-test on ΔCt</option>
+                </select>
+              </label>
+            </div>
+            <div id="parseStatus" class="inline-note">粘贴机器导出的表格后会自动识别列。</div>
+          </section>
+        </aside>
+
+        <section class="right-stack">
+          <section class="panel map-panel" aria-labelledby="mappingTitle">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">Step 3</p>
+                <h2 id="mappingTitle">样本映射</h2>
+              </div>
+              <span id="sampleCount" class="soft-counter">0 samples</span>
+            </div>
+            <div class="table-wrap sample-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>样本名</th>
+                    <th>组别</th>
+                    <th>生物重复</th>
+                    <th>检测基因</th>
+                  </tr>
+                </thead>
+                <tbody id="mappingBody">
+                  <tr>
+                    <td colspan="4" class="empty-cell">暂无样本</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel result-panel" aria-labelledby="resultsTitle">
+            <div class="panel-head result-head">
+              <div>
+                <p class="section-kicker">Step 4</p>
+                <h2 id="resultsTitle">结果与导出</h2>
+              </div>
+              <div class="button-row">
+                <button id="downloadAll" class="ghost-btn compact" type="button" disabled>
+                  <span aria-hidden="true">↓</span>
+                  全部 CSV
+                </button>
+                <button id="downloadSummary" class="ghost-btn compact" type="button" disabled>
+                  <span aria-hidden="true">↓</span>
+                  汇总 CSV
+                </button>
+                <button id="downloadDetail" class="ghost-btn compact" type="button" disabled>
+                  <span aria-hidden="true">↓</span>
+                  明细 CSV
+                </button>
+                <button id="downloadRaw" class="ghost-btn compact" type="button" disabled>
+                  <span aria-hidden="true">↓</span>
+                  原始 CSV
+                </button>
+              </div>
+            </div>
+
+            <div id="metrics" class="metric-grid">
+              <div class="metric">
+                <span>有效 CT</span>
+                <strong>0</strong>
+              </div>
+              <div class="metric">
+                <span>目的基因</span>
+                <strong>0</strong>
+              </div>
+              <div class="metric">
+                <span>生物重复</span>
+                <strong>0</strong>
+              </div>
+              <div class="metric">
+                <span>警告</span>
+                <strong>0</strong>
+              </div>
+            </div>
+
+            <div class="segmented" role="tablist" aria-label="结果表格">
+              <button class="segment active" type="button" data-view="summary">汇总</button>
+              <button class="segment" type="button" data-view="plot">图形</button>
+              <button class="segment" type="button" data-view="detail">明细</button>
+              <button class="segment" type="button" data-view="technical">技术重复</button>
+              <button class="segment" type="button" data-view="qc">QC</button>
+            </div>
+
+            <div id="plotPanel" class="plot-panel" hidden></div>
+
+            <div id="resultWrap" class="table-wrap result-wrap">
+              <table id="resultTable">
+                <tbody>
+                  <tr>
+                    <td class="empty-cell">完成设置后点击计算。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        如有问题联系邮箱
+        <button id="copyEmailBtn" class="copy-email-btn" type="button" title="复制邮箱">
+          xiangyining0727@gmail.com
+        </button>
+        <span id="copyEmailStatus" class="copy-email-status"></span>
+      </footer>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
